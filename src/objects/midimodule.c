@@ -227,8 +227,9 @@ PyTypeObject CtlScanType = {
 typedef struct {
     pyo_audio_HEAD
     PyObject *callable;
-    int ctlnumber;
-    int midichnl;
+    int status;
+    int number;
+	int value;
     int toprint;
 } CtlScan2;
 
@@ -239,7 +240,7 @@ static void
 CtlScan2_compute_next_data_frame(CtlScan2 *self)
 {
     PmEvent *buffer;
-    int i, count, midichnl;
+    int i, count;
 
     buffer = Server_getMidiEventBuffer((Server *)self->server);
     count = Server_getMidiEventCount((Server *)self->server);
@@ -250,8 +251,23 @@ CtlScan2_compute_next_data_frame(CtlScan2 *self)
             int status = Pm_MessageStatus(buffer[i].message);	// Temp note event holders
             int number = Pm_MessageData1(buffer[i].message);
             int value = Pm_MessageData2(buffer[i].message);
+			
+			
+			/*printf("\nstatus: %i\n", status);
+			printf("number: %i\n", number);
+			printf("value: %i\n", value);*/
+			
+			self->status = status;
+			self->number = number;
+			self->value = value;
+			
+			tup = PyTuple_New(3);
+			PyTuple_SetItem(tup, 0, PyInt_FromLong(self->status));
+			PyTuple_SetItem(tup, 1, PyInt_FromLong(self->number));
+			PyTuple_SetItem(tup, 2, PyInt_FromLong(self->value));
+			PyObject_Call((PyObject *)self->callable, tup, NULL);
 
-            if ((status & 0xF0) == 0xB0) {
+            /*if ((status & 0xF0) == 0xB0) {
                 midichnl = status - 0xB0 + 1;
                 if (number != self->ctlnumber || midichnl != self->midichnl) {
                     self->ctlnumber = number;
@@ -262,8 +278,8 @@ CtlScan2_compute_next_data_frame(CtlScan2 *self)
                     PyObject_Call((PyObject *)self->callable, tup, NULL);
                 }
                 if (self->toprint == 1)
-                    printf("ctl number : %i, ctl value : %i, midi channel : %i\n", self->ctlnumber, value, midichnl);
-            }
+                    printf("ctl-abab number : %i, ctl value : %i, midi channel : %i\n", self->ctlnumber, value, midichnl);
+            }*/
         }
     }
 }
@@ -300,7 +316,7 @@ CtlScan2_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     CtlScan2 *self;
     self = (CtlScan2 *)type->tp_alloc(type, 0);
 
-    self->ctlnumber = self->midichnl = -1;
+    self->status = self->number = self->value = -1;
     self->toprint = 1;
 
     INIT_OBJECT_COMMON
@@ -330,7 +346,7 @@ static PyObject * CtlScan2_stop(CtlScan2 *self) { STOP };
 static PyObject *
 CtlScan2_reset(CtlScan2 *self)
 {
-    self->ctlnumber = self->midichnl = -1;
+    self->status = self->number = self->value = -1;
 	Py_INCREF(Py_None);
 	return Py_None;
 };
